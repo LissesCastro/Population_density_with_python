@@ -1,16 +1,24 @@
+#LIBRARIES
 from gettext import install
 from matplotlib import cm
 from matplotlib.colors import BoundaryNorm, LinearSegmentedColormap, ListedColormap
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-
-
+import geopandas as gpd
+import pandas as pd
+from shapely.geometry import mapping
+from rasterio import mask as msk
 import rasterio
 import numpy as np
 
 #GETTING TIF IMAGE AND DEFINING IT
-tif_file = rasterio.open('E:\\Program Files\\Faculdade\\2022\\Codes\\Human Density Map\\Population_density_with_python\\GHS_POP_E2015_GLOBE_R2019A_4326_30ss_V1_0_13_10.tif')
+tif_file = rasterio.open('E:\\Program Files\\Faculdade\\2022\\Codes\\Human Density Map\\Population_density_with_python\\GHS_POP_E2015_GLOBE_R2019A_4326_30ss_V1_0.tif')
 ghs_data = tif_file.read()
+
+#GEOLOCATING SOUTH AMERICA FROM NATURAL EARTH SHAPEFILE
+df = gpd.read_file('E:\\Program Files\\Faculdade\\2022\\Codes\\Human Density Map\\Population_density_with_python\\Natural Earth 10m Countries\\ne_10m_admin_0_countries.shp')
+south_america = df.loc[df['CONTINENT'].isin(['South America'])]
+
 
 #THESE ATTRIBUTES GET THE GENERAL RASTER IMAGE GRAPHIC SIZE. PRINTING IT JUST TO KNOW IF THE IMAGE IS NOT TOO BIG FOR LOCAL COMPUTER PROCESSING
 print("Tiff Boundary", tif_file.bounds)
@@ -24,29 +32,22 @@ ghs_data[0][ghs_data[0] < 0.0] = 0.0
 
 #PLOTTING
 #THIS ONE PLOT THE MAP WITH A GRADIENT BASED ON THE MAXIMUM AND MINIMUN VALUES FOUND ON THE RASTER (-200 AND 32000 FOR THIS CASE)
-ourcmap = cm.get_cmap('cool', 460)
-newcolors = ourcmap(np.linspace(0, 1, 460))
-background_colour = np.array([0.9882352941176471, 0.9647058823529412, 0.9607843137254902, 1.0])
-newcolors[:1, :] = background_colour
-newcmp = ListedColormap(newcolors)
-
-#fig, ax = plt.subplots(facecolor='#FCF6F5FF')
-#fig.set_size_inches(14, 7)
-#ax.imshow(ghs_data[0], norm=colors.LogNorm(), cmap=newcmp)
-#ax.axis('off')
-#plt.show()
 
 #THIS IS AN ADAPTION WHERE THE BANDS OF COLOR ARE DEFINED IN THE CODE. IN THIS CASE I'VE USED 17 TONES OF THE GRADIENT TO PRINT THE MAP
-our_cmap = cm.get_cmap('cool', 17)
-newcolors = our_cmap(np.linspace(0, 1, 17))
+our_cmap = cm.get_cmap('cool', 10)
+newcolors = our_cmap(np.linspace(0, 1, 10))
 background_colour = np.array([0.9882352941176471, 0.9647058823529412, 0.9607843137254902, 1.0])
 newcolors = np.vstack((background_colour, newcolors))
 our_cmap = ListedColormap(newcolors)
-bounds = [0.0, 1, 10, 20, 35, 75, 120, 300, 550, 1250, 3000, 5000, 7500, 10000, 12000, 17000, 21000, 32000, 50000]
-norm = colors.BoundaryNorm(bounds, our_cmap.N)
+bounds = [0.0, 1, 5, 10, 50, 200, 1000, 3500, 6000, 12000, 20000]
+norm = colors.BoundaryNorm(bounds, our_cmap.N, clip=True)
+
+
+#MAP PLOTTING
+southa_array, clipped_transform = msk.mask(tif_file, [mapping(geom) for geom in south_america.geometry.tolist()], crop=True)
 
 fig, ax = plt.subplots(facecolor='#FCF6F5FF')
-fig.set_size_inches(112, 56)
-ax.imshow(ghs_data[0], norm=norm, cmap=our_cmap)
+fig.set_size_inches(14, 7)
+ax.imshow(southa_array[0], norm=norm, cmap=our_cmap)
 ax.axis('off')
 plt.show()
